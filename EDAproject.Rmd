@@ -1,0 +1,1054 @@
+# Exploring LOAN DATA from Prosper
+## by César Tablas
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width=12, fig.height=8, fig.path='figure/',
+  echo=FALSE, warning=FALSE, message=FALSE,
+  cache = TRUE, cache.path = 'cache/'
+)
+```
+
+```{r packages}
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+library(memisc)
+library(car)
+```
+
+```{r Load the Data}
+# Load the Data
+pl <- read.csv("prosperLoanData.csv")
+```
+
+## The Data Set
+
+The Data Set contains information about Prosper loans. It contains variables related to: the amount, term and interest rate of the loans; the credit rating, employment status, and occupation of the borrowers; and information about lenders, investors, yields and more.
+
+[Prosper](http://www.prosper.com) is an intermediary of [peer-to-peer lending](https://en.wikipedia.org/wiki/Peer-to-peer_lending) in the US.
+
+In this financing model there are three major players:
+
+1) The *borrower* who submits an application to loan up to $35,000 for a disclosed purpose and provides documentation to prove their credit rating.
+
+2) The *investor* or lender who reviews the borrowing listings with information about the borrower, location, amount of loan, credit rating, fees, verification stage, percentage financed, and estimated return.
+
+3) The *intermediary*, in this case [Prosper Marketplace, Inc.](https://en.wikipedia.org/wiki/Prosper_Marketplace), who verifies the borrower's documentation, assigns their own credit rating, and for a servicing fee conducts the process of loaning and collecting the money and pay back the investor the amounts that have been repaid by the borrower. In the process, the intermediary keeps a percentage, charges fees, and charges an upfront amount deducted from what the borrower gets. The loans are unsecured and there is a risk for the investor to obtain a lesser return, or even a loss in the transaction.
+
+## Univariate Plots Section
+
+In this section I am interested in exploring individual variables using histograms, bar charts, summaries, measures of central tendency, and density plots to closely study the distribution of each variable.
+
+After reviewing the long list of 81 variables in this dataset, the ones that caught my attention are: the amount, term, status, purpose and interest rates of the loan, the credit scores, the investors that fund the loan, and some more information about the borrower, like income range ane debt to income ratio.
+
+
+```{r LoanOriginalAmount}
+
+hist(pl$LoanOriginalAmount, probability = TRUE)
+lines(density(pl$LoanOriginalAmount, bw = 500), col = 'red')
+summary(pl$LoanOriginalAmount)
+
+```
+
+Half of the loans were for amounts from $1000--$6500. The amounts borrowed tend to peak around whole thousands, like $10000, $15000, $20000.
+
+```{r Term, fig.width = 6, fig.height = 6}
+
+pl$Term <- factor(pl$Term)
+plot(pl$Term, main = "Term", xlab = 'months')
+table(pl$Term)
+table(pl$Term) / length(pl$Term) * 100
+
+```
+
+Most of the loans are for 36 months (77.0%) and 60 months (21.5%).
+
+---
+
+#### Interest Rates
+
+```{r Interest Rates}
+
+p1 <- ggplot(data = pl, aes(x = BorrowerRate)) + 
+  geom_histogram(color = 'black', fill = 'azure', binwidth = 0.01) +
+  scale_x_continuous(limits = c(0, .5)) +
+  geom_vline(xintercept = median(pl$BorrowerRate, na.rm = TRUE),
+             colour = 'red',
+             size = 2)
+
+p2 <- ggplot(data = pl, aes(x = BorrowerAPR)) + 
+  geom_histogram(color = 'black', fill = 'azure', binwidth = 0.01) +
+  scale_x_continuous(limits = c(0, .5)) +
+  geom_vline(xintercept = median(pl$BorrowerAPR, na.rm = TRUE),
+             colour = 'red',
+             size = 2)
+
+p3 <- ggplot(data = pl, aes(x = LenderYield)) + 
+  geom_histogram(color = 'black', fill = 'antiquewhite', binwidth = 0.01) +
+  scale_x_continuous(limits = c(0, .5)) +
+  geom_vline(xintercept = median(pl$LenderYield, na.rm = TRUE),
+             colour = 'red',
+             size = 2)
+
+p4 <- ggplot(data = pl, aes(x = EstimatedEffectiveYield)) +
+  geom_histogram(color = 'black', fill = 'azure', binwidth = 0.01) +
+  scale_x_continuous(limits = c(0, .5)) +
+  geom_vline(xintercept = median(pl$EstimatedEffectiveYield, na.rm = TRUE),
+             colour = 'red',
+             size = 2)
+
+grid.arrange(p1, p3, p2, p4, ncol = 2)
+
+print("Summaries of BorrowerRate, BorrowerAPR, LenderYield and EstimatedEffectiveYield")
+summary(pl$BorrowerRate)
+summary(pl$BorrowerAPR)
+summary(pl$LenderYield)
+summary(pl$EstimatedEffectiveYield)
+
+```
+
+These interest rates are related to each other, and seem to follow basically the same distribution. The BorrowerAPR should reflect the effective cost of borrowing, including the BorrowerRate plus other fees and costs. The LenderYield is the difference between what the borrower pays and a service fee fee of 1% that goes to Prosper. At first glance, the median values reflect the expected values:
+
+LenderYield (17%) = Borrower Rate (18%) - Prosper (1%)
+
+There are some outliers in the minimum values (-0.01%) and the maximum values (51%). These values could be errors in the data or rare cases for some reason.
+
+---
+
+#### Credit Scores
+
+```{r Credit Scores}
+
+p1 <- ggplot(data = subset(pl, CreditGrade != ""),
+             aes(x = CreditGrade)) +
+  geom_bar()
+
+p2 <- ggplot(data = subset(pl, ProsperRating..Alpha. != ""),
+             aes(x = ProsperRating..Alpha.)) +
+  geom_bar()
+
+p3 <- ggplot(data = subset(pl, !is.na(ProsperRating..numeric.)),
+             aes(x = factor(ProsperRating..numeric.))) +
+  geom_bar()
+
+p4 <- ggplot(data = subset(pl, !is.na(ProsperScore)),
+             aes(x = factor(ProsperScore))) +
+  geom_bar()
+
+grid.arrange(p1, p2, p4, p3, ncol = 2)
+
+```
+
+CreditGrade rating was used before July 2009. The other ratings are related to each other and are the ones used after July 2009. Actually, the Alpha and numeric ratings are only a recodification of the same rating. with 1=HR to 7=AA, from worse (1=High Risk) to best (7=AA)
+
+---
+
+#### Loan Status
+
+```{r LoanStatus}
+
+ggplot(data = pl, aes(x = LoanStatus)) + 
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+table(pl$LoanStatus)/length(pl$LoanStatus)*100
+
+```
+
+49.6% of loans in dataset are current, 4.4 are defaulted, and 2.0% are late. The rest 44% are either completed, charged off or cancelled.
+
+---
+
+#### Investors that funded the loans
+
+```{r Investors}
+
+hist(pl$Investors, probability = TRUE)
+lines(density(pl$Investors , bw = 1), col = 'red')
+
+hist(log10(pl$Investors))
+
+summary(pl$Investors)
+quantile(pl$Investors, probs=c(.95, .99))
+dim(subset(pl, Investors==1))/dim(pl)
+pl["LoanOriginalAmount"][pl["Investors"] == 1189 ]
+
+```
+
+24.4% of the loans are funded by 1 investor. The distribution has a very long tail, with a maximun number of 1189 investors for a $20,000 loan.
+
+---
+
+#### More about the borrower
+
+```{r More about the Borrower}
+
+qplot(pl$MonthlyLoanPayment, binwidth = 100)
+qplot(pl$IncomeRange)
+qplot(pl$DebtToIncomeRatio, binwidth = .05, xlim = c(0, 1))
+
+quantile(pl$MonthlyLoanPayment, probs=c(.05,.95))
+quantile(pl$DebtToIncomeRatio, probs=c(.05,.95), na.rm = T)
+
+
+```
+
+More information about the borrower: 
+
+- Most monthly paymets are from $50-$650
+
+- The IncomeRange variable levels need reordering. Most borrowers have an income from 25K to 100K
+
+- Debt/Income ratio varies from 0.06 - 0.50
+
+---
+
+#### Loan Purpose
+
+```{r Listing Category}
+
+# Create new variable factor levels according to variable description
+pl$ListingCategory <- factor(pl$ListingCategory..numeric.)
+levels(pl$ListingCategory) <- c(
+  "Not Available",
+  "Debt Consolidation",
+  "Home Improvement", 
+  "Business",
+  "Personal Loan",
+  "Student Use",
+  "Auto",
+  "Other",
+  "Baby&Adoption",
+  "Boat",
+  "Cosmetic Procedure",
+  "Engagement Ring",
+  "Green Loans",
+  "Household Expenses",
+  "Large Purchases",
+  "Medical/Dental",
+  "Motorcycle",
+  "RV",
+  "Taxes",
+  "Vacation",
+  "Wedding Loans")
+
+qplot(pl$ListingCategory) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Most people borrowed money for Debt Consolidation.
+
+---
+
+# Univariate Analysis
+
+#### What is the structure of your dataset?
+
+The dataset contains 113,937 observations. Each observation represents a loan described by 81 variables.
+
+There is a group of variables related to the **loans** (Term, LoanOriginalAmount, LoanStatus); other group about the **borrower** (BorrowerRate, Occupation, EmploymentStatus, IsBorrowerHomeowner, OpenCreditLines); other about the **yields and interest rates** (LenderYield, EstimatedEffectiveYield); other about **groups of borroweers** (CurrentlyInGroup, GroupKey); and a group of variables about the **credit score** (CreditGrade, ProsperScore, ProsperRating).
+
+Almost half of the loans are current, and half are either completed, charged off, or closed.
+
+---
+
+#### What is/are the main feature(s) of interest in your dataset?
+
+Among all the variables, the ones that catch my attention are the interest rates and the credit ratings. Is there a relationship between the interest a borrower gets charged and their credit rating?
+
+---
+
+#### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+
+LoanOriginalAmount: Are the interests related with the amount borrowed?
+Investors: Do investors prefer better credits ratings or bigger interest returns?
+Term: Has term any contribution with the interest rate.
+
+---
+
+#### Did you create any new variables from existing variables in the dataset?
+
+To have a better look at the Loan Listing Category, I created a variable ListingCategory with the data from ListingCategory..numeric. and recoded the factor levels according with the variables' documentation.
+
+---
+
+#### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+
+The LoanOriginalAmount has a multi-modal distribution.
+
+The Investors variable, that contains the number of investors that funded the loan, has a long tailed distribution. After applying a log transformation, the distribution looks uniform, aside from the fact that 24% of the loans are funded by 1 investor.
+
+---
+
+## Bivariate Plots Section
+
+In this section I want to delve into the relationships between the two main features that interest me and other variables in the dataset that sound to be related to them. Briefly, they are:
+
+**BorrowerRate**, The Borrower's interest rate for a loan, as related to these variables: credit ratings, loan amount, other interest rates, investors.
+
+**ProsperRating(numeric)** The Prosper Rating assigned at the time the listing was created: (worst) 1 - HR, 2 - E, 3 - D, 4 - C, 5 - B, 6 - A, 7 - AA (best). Applicable for loans originated after July 2009. For this reason I will use a subset of the data with observations that use this rating. I will look into the relationships with other credit scores, the score changes of the borrower, the delinquency history, the inquiries history, the total available credit and utilization ratio, and debt to income ratio.
+
+To judge each relationship I will use scatterplots and linear regression fits. In the process I will try to identify the main features for a linear regression model that explains what influences one's credit rating. 
+
+
+#### BorrowerRate vs. ProsperRating
+
+```{r Rate vs Rating}
+
+# subset only loans after July 2009, with the new rating score
+pl.rated <- subset(pl, !is.na(ProsperRating..numeric.))
+# and create a new variable containing the rating as a factor
+rating <- factor(pl.rated$ProsperRating..numeric.)
+
+ggplot(data = pl.rated,
+       aes(x = rating,
+           y = BorrowerRate)) +
+  geom_boxplot()
+
+m.rate <- lm(BorrowerRate ~ rating, data = pl.rated)
+
+mtable(m.rate)
+
+ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = BorrowerRate)) +
+  geom_point(alpha = 0.05, position = position_jitter()) +
+  geom_smooth(method = "lm")
+
+```
+
+There is a clear relationship between the credit score and the interest rate charged to a borrower. R-squared has a high value of 0.914.
+
+---
+
+#### Interes Rates
+
+```{r Interest rates}
+
+p1 <- ggplot(data = pl,
+             aes(x = BorrowerRate,
+                 y = BorrowerAPR)) +
+  geom_point(alpha = 0.05)
+
+p2 <- ggplot(data = pl,
+             aes(x = BorrowerRate,
+                 y = LenderYield)) +
+  geom_point(alpha = 0.05)
+
+p3 <- ggplot(data = pl,
+             aes(x = BorrowerAPR - BorrowerRate)) +
+  geom_histogram() +
+  scale_x_continuous(limits = c(0, .05), breaks=seq(0, .05, .01))
+
+p4 <- ggplot(data = pl,
+             aes(x = BorrowerRate - LenderYield)) +
+  geom_histogram() +
+  scale_x_continuous(limits = c(0, .05), breaks=seq(0, .05, .01))
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+print("BorrowerAPR - BorrowerRate")
+with(pl, summary(BorrowerAPR - BorrowerRate))
+
+print("BorrowerRate - LenderYield")
+with(pl, summary(BorrowerRate - LenderYield))
+
+```
+
+The difference between BorrowerAPR and BorrowerRate is from 1.9% - 3.6%
+
+The difference between BorrowerRate and LenderYield, as expected, is around 1.0%
+
+---
+
+#### Loan Amount vs Rating and Rate
+
+```{r Loan amount vs rating}
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = rating,
+           y = LoanOriginalAmount)) +
+  geom_boxplot()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = BorrowerRate,
+           y = LoanOriginalAmount)) +
+  geom_point(alpha = .05) +
+  geom_smooth()
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+The amount borrowed tends to increase when the rate decreases (better rating).
+
+---
+
+#### Term vs. LoanOriginalAmount and BorrowerRate
+
+```{r Term vs amount and rate}
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = factor(Term),
+           y = LoanOriginalAmount)) +
+  geom_boxplot()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = factor(Term),
+           y = BorrowerRate)) +
+  geom_boxplot()
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+Higher rates or amounts result in higher monthly payments, which could explain the choice of a longer Term.
+
+---
+
+#### Investors vs. LoanOriginalAmount and BorrowerRate
+
+```{r Investors vs amount and rate}
+
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = Investors,
+           y = LoanOriginalAmount)) +
+  geom_point(alpha = .05) +
+  scale_x_log10(breaks = c(5,10,15,20,30,50,100,1000)) +
+  scale_y_log10() +
+  geom_smooth()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = Investors,
+           y = BorrowerRate)) +
+  geom_point(alpha = .05) +
+  scale_x_log10(breaks = c(5,10,15,20,30,50,100,1000)) +
+  scale_color_brewer(type='div') +
+  geom_smooth()
+
+grid.arrange(p1, p2)
+
+```
+
+*The right part of the graphs:*
+
+Bigger Loan Amounts require more investors to fund it.
+
+Lower rates mean better credit rating and hence more investors get involved. Less investors take the risks of funding higher rates (lower credit score) even when they can expect higher returns.
+
+*The left part of the graphs:*
+
+One or a few investor fund loans of different ammounts, but the lower rates suggests that the credit score has some influence.
+
+---
+
+#### The Prosper Rating score
+
+In an effort to explore what variables are related or determine the Prosper Rating, I will follow some ideas from [this](http://www.rd.com/advice/saving-money/your-credit-score-the-magic-money-number-explained/) Reader's Digest artilce explaining how credit scores in general are calculated. In the case of Prosper's rating, they also count on the borrowers credit score from other rating agencies.
+
+1. **The Borrower's Credit Scores**
+
+```{r The borrower credit scores}
+
+
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = CreditScoreRangeUpper)) +
+  geom_point(alpha = .05, position = position_jitter()) + 
+  geom_smooth(method = "lm") + coord_flip()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = CreditScoreRangeLower)) +
+  geom_point(alpha = .05, position = position_jitter()) + 
+  geom_smooth(method = "lm") + coord_flip()
+
+grid.arrange(p1, p2, ncol = 2)
+
+ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = ScorexChangeAtTimeOfListing)) +
+  geom_point(alpha = .05, position = position_jitter()) + 
+  geom_smooth(method = "lm") + coord_flip()
+
+```
+
+One clear relationship is between the borrowers credit scores that come from other agencies (hence the lower and upper limits) and the score or rating assigned by Prosper.
+
+The score change related to the score when previous Prosper loans were granted, has some influence too.
+
+2. **Past Delinquencies**
+
+```{r Past Delinquencies}
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = CurrentDelinquencies)) +
+  geom_point(alpha = .05, position = position_jitter()) +
+  scale_y_sqrt(limits = quantile(pl.rated$CurrentDelinquencies, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = AmountDelinquent)) +
+  geom_point(alpha = .1, position = position_jitter()) +
+  scale_y_sqrt(limits = quantile(pl.rated$AmountDelinquent, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+p3 <- ggplot(data = subset(pl, !is.na(ProsperRating..numeric.)),
+       aes(x = ProsperRating..numeric.,
+           y = DelinquenciesLast7Years)) +
+  geom_point(alpha = .05, position = position_jitter()) +
+  scale_y_sqrt(limits = quantile(pl.rated$DelinquenciesLast7Years, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+p4 <- ggplot(data = subset(pl, !is.na(ProsperRating..numeric.)),
+       aes(x = ProsperRating..numeric.,
+           y = TradesNeverDelinquent..percentage.)) +
+  geom_point(alpha = .05, position = position_jitter()) +
+  scale_y_continuous(limits =  quantile(pl.rated$TradesNeverDelinquent..percentage., probs = c(.05, 1))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+```
+
+All the above variables show some relationship with the Prosper Score, but the variable that shows more influence is the percentage of Trades Never Delinquent.
+
+3. **New Credit i.e. Inquiries**
+
+```{r Inquiries}
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = InquiriesLast6Months  )) +
+  geom_point(alpha = .02, position = position_jitter()) +
+  scale_y_sqrt(limits =  quantile(pl.rated$InquiriesLast6Months, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = TotalInquiries  )) +
+  geom_point(alpha = .02, position = position_jitter()) +
+  scale_y_sqrt(limits =  quantile(pl.rated$TotalInquiries, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+The inquires made to a borrower's credit history when they apply for new credit has influence in the credit score. These two variables show some relationship with the Prosper Score.
+
+4. **Total Available Credit and Credit Utilization Ratio**
+
+```{r Total Credit}
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = AvailableBankcardCredit)) +
+  geom_point(alpha = .05, position = position_jitter()) +
+  scale_y_sqrt(limits =  quantile(pl.rated$AvailableBankcardCredit, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = BankcardUtilization)) +
+  geom_point(alpha = .05, position = position_jitter()) +
+  scale_y_sqrt(limits =  quantile(pl.rated$BankcardUtilization, probs = c(0, .95))) +
+  geom_smooth(method = "lm") + coord_flip()
+
+grid.arrange(p1, p2, ncol = 2)
+
+```
+
+These two variables show a clear relationship with the Prosper Rating.
+
+4.a **Other measurments of Total Credit**
+
+```{r Other Credit}
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = TotalCreditLinespast7years)) +
+  geom_point(alpha = .01, position = position_jitter()) +
+  scale_y_sqrt() +
+  geom_smooth(method = "lm") + coord_flip()
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = TotalTrades)) +
+  geom_point(alpha = .01, position = position_jitter()) +
+  scale_y_sqrt() +
+  geom_smooth(method = "lm") + coord_flip()
+
+p3 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = TotalProsperLoans)) +
+  geom_point(alpha = .01, position = position_jitter()) +
+  scale_y_sqrt() +
+  geom_smooth(method = "lm") + coord_flip()
+
+p4 <- ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = ProsperPrincipalBorrowed)) +
+  geom_point(alpha = .05, position = position_jitter()) +
+  scale_y_sqrt() +
+  geom_smooth(method = "lm") + coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+```
+
+Prosper Principal Borrowed, the total principal borrowed on Prosper loans at the time the listing was created, shows some relationship with Prosper Rating. The other 3 seem not to influence it greatly.
+
+5. **Debt to Income Ratio**
+
+```{r Debt/Income}
+
+ggplot(data = subset(pl, !is.na(ProsperRating..numeric.)),
+       aes(x = ProsperRating..numeric.,
+           y = DebtToIncomeRatio  )) +
+  geom_point(alpha = .1, position = position_jitter()) +
+  scale_y_continuous(limits =  quantile(pl.rated$DebtToIncomeRatio, probs = c(0.05, .95), na.rm = TRUE)) +
+  geom_smooth(method = "lm") + coord_flip()
+
+```
+
+This ratio seem to influence the Prosper Rating. The bigger this ratio, the less money is available to pay new debt or dayly expenses.
+
+
+---
+
+## Bivariate Analysis
+
+---
+
+#### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+
+**BorrowerRate vs. ProsperRating**
+
+The relationship between these two variables is very strong. Borrowers with better rating, get loans with lower interest rates.
+
+**Interest Rates**
+
+The different types of interests are related with one another: 
+
+* The BorrowerRate is the rate charged to the borrower according to their rating.
+
+* The BorrowerAPR is the annualized percentage rate that the borrower pays for the loan. It is higher than the BorrowerRate.
+
+* The LenderYield is 1% less than the BorrowerRate, after a servicing fee for Prosper
+
+These relationships seem confirmed by the data.
+
+**LoanOriginalAmount, BorrowerRate, Term, Investors**
+
+Higher amounts and higher rates, tend to require a longer term.
+
+Investors, the number of investors involved in funding a loan, seem to have a different behaviour for the range from 1-20 investors, than for more than 20 investors. It seems related to the interest rate, the credit rating and the loan amount. 
+
+---
+
+#### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+
+**ProsperRating**
+
+This variable is very interesting: 
+
+1. On the front end, it determines what interest rate will be charged for a loan. 
+
+2. On the back end, it seems to be related to (or determined by many other variables that define the borrower:
+
+  - CreditScoreRangeUpper
+  - CreditScoreRangeLower
+  - AvailableBankcardCredit
+  - BankcardUtilization
+  - TradesNeverDelinquent
+  - InquiresLast6Months
+  - TotalInquires
+  - DebtToIncomeRatio
+  - and many others like credit score from other agencies, income range, employment status, time with this status, open and revolving credit, etc.
+
+---
+
+#### What was the strongest relationship you found?
+
+The relationship between ProsperRating..numeric. (from 1 worst to 7 best) is strongly related to the BorrowerRate. The R-squared value is 0.914
+
+---
+
+## Multivariate Plots Section
+
+Having found a strong relationship between the BorrwerRate and the ProsperRating, I want to check up on other variables that are known at the time the loan is being requested: the term and the loan amount.
+
+I also want to see how the rating influences the other interest rates, not only borrower's rate, but APR and lender's yield.
+
+I deem it worthy to explore the investor's wisdom on the matter: How do investors act towards ratings and interests.
+
+Finally, having identified the variables that contribute to the observed variations in the rating, I'll try to build a linear regression model that sheds some insight into the main contributors to one's credit rating.
+
+#### BorrowerRate vs Prosper Rating, by Term
+
+```{r Rate vs Rating by Term}
+
+ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = BorrowerRate,
+           color = Term)) +
+  geom_point(alpha = 0.1, position = position_jitter()) +
+  geom_smooth(method = "lm")
+  
+m.rate.1 <- update(m.rate, ~ . + factor(Term))
+
+mtable(m.rate, m.rate.1)
+
+```
+
+Taking into consideration the variation observed in the relationship between the Prosper Rating and the Borrower Rate by the Term of the loan, and updating the linear model, the R-squared increases to 0.922
+
+#### The different interest rates, by rating
+
+```{r Interest Rates by Rating et al}
+
+
+
+p1 <- ggplot(data = pl.rated,
+             aes(x = BorrowerRate,
+                 y = BorrowerAPR,
+                 color = rating)) +
+  geom_point() +
+  scale_color_brewer(type = "div")
+
+p2 <- ggplot(data = pl.rated,
+             aes(x = BorrowerRate,
+                 y = LenderYield,
+                 color = rating)) +
+  geom_point() +
+  scale_color_brewer(type = "div")
+
+p3 <- ggplot(data = pl.rated,
+             aes(x = BorrowerAPR - BorrowerRate,
+                 fill = rating)) +
+  geom_histogram(binwidth = .001) +
+  scale_x_continuous(limits = c(0, .05), breaks=seq(0, .05, .01))
+
+p4 <- ggplot(data = pl.rated,
+             aes(x = BorrowerRate - LenderYield,
+                 fill = rating)) +
+  geom_histogram(binwidth = .001) +
+  scale_x_continuous(limits = c(0, .05), breaks=seq(0, .05, .01))
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+```
+
+Another way to see the realationship between a better rating (lower risk). In these graphs it is clear the position of better rating loans toward the end of the graph with lower interest rates.
+
+####Loan Amount vs. Borrower Rate, by rating
+
+```{r Amount vs. rate}
+
+ggplot(data = pl.rated,
+       aes(x = BorrowerRate,
+           y = LoanOriginalAmount,
+           color = rating)) +
+  geom_point(alpha = .1) +
+  scale_colour_brewer(type = "div")
+
+```
+
+In general, the lower the interest rate, the higher the amount loaned, and this corresponds to a better rating.
+
+#### Investors by rating
+
+```{r Investors by rating}
+
+
+p1 <- ggplot(data = pl.rated,
+       aes(x = Investors,
+           y = LoanOriginalAmount,
+           color = rating)) +
+  geom_point(alpha = .1) +
+  scale_x_log10(breaks = c(5,10,15,20,30,50,100,1000)) +
+  scale_y_log10() +
+  scale_color_brewer(type = 'div')
+
+p2 <- ggplot(data = pl.rated,
+       aes(x = Investors,
+           y = BorrowerRate,
+           color = rating)) +
+  geom_point(alpha = .1) +
+  scale_x_log10(breaks = c(5,10,15,20,30,50,100,1000)) +
+  scale_color_brewer(type='div')
+
+
+grid.arrange(p1, p2)
+
+print("90 and 95 quantiles of Investors by ProsperRating")
+pl.rated %>%
+  group_by(ProsperRating..numeric.) %>%
+  summarise(
+    q90 = quantile(Investors, probs = .90),
+    q95 = quantile(Investors, probs = .95)  ) 
+
+```
+
+More investors pitch in when the rating is better, and most of the loans funded by one investor are for borrowers with good rating.
+
+The second graph is another way of seeing the relationship between BorrowerRate and ProsperRating: horiontal lines define a rate corresponding to a rating. Lower rates for better ratings. 
+
+The number of investors seem distributed across all the graphic, but the range of investors increases by rating.
+
+#### A model to identify the variables that influence ProsperRating
+
+
+```{r Rating model}
+
+# The main input variables
+m.rating <- lm(data = pl.rated,
+               formula = ProsperRating..numeric. ~ 
+                 0 +
+                 CreditScoreRangeLower +
+                 CreditScoreRangeUpper )
+
+# Other variables that add to the relationship
+m.rating.1 <- update(m.rating, ~ . + 
+                       TradesNeverDelinquent..percentage. + 
+                       TotalTrades +
+                       BankcardUtilization +
+                       DebtToIncomeRatio + 
+                       AvailableBankcardCredit +
+                       InquiriesLast6Months +
+                       CurrentDelinquencies 
+                     )
+
+# These variables seem to not intervene too much
+m.rating.2 <- update(m.rating.1, ~ . + 
+                       DelinquenciesLast7Years + 
+                       AmountDelinquent +
+                       TotalInquiries +
+                       TotalCreditLinespast7years 
+                     )
+
+# This variables have too many missing values and even pulls back the R-squared
+m.rating.3 <- update(m.rating.2, ~ . + 
+                       ScorexChangeAtTimeOfListing +
+                       ProsperPrincipalBorrowed + 
+                       TotalProsperLoans
+                     )
+
+# choose model 1
+fit <- m.rating.1
+
+mtable(fit)
+summary(fit)
+qqPlot(fit)
+
+```
+
+The Q-Q plot shows the proposed model's goodnes of fit.
+
+---
+
+## Multivariate Analysis
+
+#### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+
+**BorrowerRate**
+
+The interest rate that the borrower gets for a loan is related to their credit score, in this case the ProsperRating.
+
+When the borrower submits an application for a loan, the other relevant variables are the term, amount and purpose of the loan. 
+
+After exploring the relationship between these variables with the interest rate, the only variable that shows some variations, contributes or strengthens the relationship is the term of the loan.
+
+I would not say that the term is a factor determining the interest rate, but perhaps that the relationship observed is because people with better rating choose shorter terms.
+
+**ProsperRating**
+
+Trying to determine what other variables influence or determine the ProsperRating of a borrower, I explored many variables in the dataset, grouping them in these categories:
+
+- *Credit scores from other agencies*: There are two variables in the dataset that reflect them as a lower and upper credit score. There is also one that shows the change in credit score since the last application for a Prosper loan.
+
+- *Payment History*: There are some variables from outside Prosper showing past delinquencies, old and recent; and other variables from past Prosper loans that reflect on time and late payments.
+
+- *Available Credit and Total Debt*: The amount of credit available through bank credit cards, and the ratio of utilization or indebtment.
+
+- *New Credit*: The variables that record the inquiries made to a borrower account to obtain new credit.
+
+- *Debt to Income Ratio*: One variable holds this information.
+
+After exploring the variation of the ProsperRating with these variables, I grouped them again according to their influence in the rating:
+
+a) *The main input variables*: 
+- CreditScoreRangeLower 
+- CreditScoreRangeUpper
+
+b) *Other variables that add to the relationship*:
+- TradesNeverDelinquent..percentage.
+- TotalTrades
+- BankcardUtilization
+- DebtToIncomeRatio
+- AvailableBankcardCredit
+- InquiriesLast6Months
+- CurrentDelinquencies
+
+c) *The variables that seem not to intervene too much*:
+- DelinquenciesLast7Years 
+- AmountDelinquent 
+- TotalInquiries 
+- TotalCreditLinespast7years 
+
+d) *The variables that have too many missing values*:
+- ScorexChangeAtTimeOfListing 
+- ProsperPrincipalBorrowed 
+- TotalProsperLoans
+
+---
+
+#### Were there any interesting or surprising interactions between features?
+
+I didn't expect an interaction between the term of a loan and its interest rate. We can't say that the term influences the interest rate, but a borrower that is applying for a loan and gets it at a higher rate, would prefer a longer term to pay.
+
+Another surprising interaction was the distribution of the number of investors by rating. But in hindsight, it is reasonable that most investors prefer to minimize the risk, while there are still a number of investors who would tolerate more risk for a higher return.
+
+---
+
+#### Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+
+Having seen that the interest rate assigned to a borrower is strongly related or determined by their credit score, and knowing that Prosper assigns their own credit score to their borrowers, I wanted to explore if there were variables that could explain the origin of such score.
+
+Prosper used a credit score called CreditGrade that was assigned at the time the loan listing went live and was used for loans before July 2009.
+
+After July 2009, Proper assigns a credit score called ProsperRating. There are two equivalent versions of this score in the dataset, one numeric ranging from 1 (worst) to 7 (best) and the other has the corresponding levels of HR (worst), E, D, C, B, A, and AA (best).
+
+I restricted my exploration only to those loans after July 2009 that use the new ProsperRating.
+
+For the model I chose the following features:
+
+- CreditScoreRangeLower
+- CreditScoreRangeUpper.
+- TradesNeverDelinquent..percentage.
+- TotalTrades
+- BankcardUtilization
+- DebtToIncomeRatio
+- AvailableBankcardCredit
+- InquiriesLast6Months
+- CurrentDelinquencies
+
+After performing a linear model analyisis with these features on the subset of data that uses the ProsperRating, I obtained an R-squared of 0.92 that indicates a strong relationship.
+
+The model shows that there is a strong relationship between the chosen features and the ProsperRating. The Q-Q plot of the model shows a good fit, with residuals following a normal distribution in the central portion. The model served to identify the variables that influence the most the variability of ProsperRating.
+
+I don't know the weight that Prosper assigns to each variable. For example: the two credit scores that come from other agencies could be combined into one with a weighted mean, assigning more weight to the lower score than the higher Or the set of variables that define the borrower's payment history could be assigned more weight than the inquiries made to their account. In the model I am giving the same weight to every variable.
+
+------
+
+## Final Plots and Summary
+
+#### Plot One
+```{r Plot One}
+
+ggplot(data = pl.rated,
+       aes(x = ProsperRating..numeric.,
+           y = BorrowerRate,
+           color = factor(Term))) +
+  geom_point(alpha = 0.1, position = position_jitter()) +
+  geom_smooth(method = "lm") +
+  labs(title = "Borrower Rate vs. Prosper Rating by Term",
+       x = "Prosper Rating",
+       y = "Borrower Rate") +
+  scale_y_continuous(breaks = seq(0, .5, .05))
+
+
+```
+
+#### Description One
+
+This plot of the BorrowerRate vs. ProsperRating shows that a lower interest rate is expected for a borrower with a better credit rating. (The rating levels go from 1-high risk, to 7-best credit). When grouping by the loan term in months, the interest rate tends to be lower for shorter terms.
+
+
+#### Plot Two
+```{r Plot Two}
+
+ggplot(data = pl.rated,
+             aes(x = BorrowerRate,
+                 y = BorrowerAPR,
+                 color = rating)) +
+  geom_point() +
+  scale_color_brewer(type = "div") +
+  scale_x_continuous(breaks = seq(.05, .5, .05)) +
+  scale_y_continuous(breaks = seq(.05, .5, .05)) +
+  labs(title = "Borrower Rate vs. Borrower APR by rating",
+       x = "Borrower Rate",
+       y = "Borrower APR")
+
+```
+
+#### Description Two
+
+This plot reveals some interesting facts about the Annual Percentage Rate (APR) as compared to the nominal interest rate. The purpose of the APR is to make it easier to compare lenders and loan conditions by including all the other fees and charges that make up the cost of borrowing. Just by exploring the dataset, I can't know what charges and fees are included in the APR: besides the interest rate, a Prosper borrower pays a service fee of 1%, late payment charges and an upfront origination fee (not included in the APR).
+
+The plot shows that lower interest rates correspond to better credit rating borrowers.
+
+Holding an interest rate constant, say 0.10, the APR is bigger for borrowers with slightly lesser credit rating. Borrowers with better rating pay less in fees and charges. 
+
+#### Plot Three
+```{r Plot Three}
+
+ggplot(data = pl.rated,
+       aes(x = Investors,
+           y = LoanOriginalAmount,
+           color = rating)) +
+  geom_point(alpha = 1) +
+  scale_x_log10(breaks = c(1,2,3,4,5,10,15,20,30,40,50,100,200,500,1000)) +
+  #scale_y_log10() +
+  scale_color_brewer(type = 'div') +
+  labs(title = "Loan Amount vs. Investors by rating",
+       x = "Number of Investors",
+       y = "Loan Amount, $")
+
+
+```
+
+#### Description Three
+
+This plot of the Loan Amount vs. the Number of Investors that fund a loan exhibits the importance of the credit rating as perceived by a third person: the investor. 
+
+In the previous plots it is evident that the borrower's credit rating poses great influence on the lender's decision to charge lower or higher interest rates to the borrower. 
+
+This plot shows the investor's take on the matter:
+
+- More investors pitch in to fund a loan when the borrower's credit rating is better.
+
+- There are investors willing to fund the whole credit if the borrower's rating is good.
+
+It seems that the Loan Amount for borrowers with poor credit rating is capped to around $10K (or self restrained?, or forced by the higher interests?)
+
+------
+
+## Reflection
+
+The Prosper Loans dataset contains a wealth of information about 114K loans given between Nov 2005 and Mar 2014.
+
+I first started my exploration by reading the name of the variables and their description when it was not clear enough. By this time I had in mind some questions and ideas that I wanted to explore.
+
+I continued exploring individual variables that I had noticed, like the loan amount, term, interest rates, credit scores, loan status, and loan purposes. At first I leaned towards the relationship between the interest rates and the credit score, but because I found it so evident I decided to give it another thought and I read again the definition of the variables. I thought backwards, like a borrower, and decided to explore what would give me a good or bad credit rating that would deserve me a lower interest rate.
+
+I wanted to know what influences one's credit rating. I found an [article](http://www.rd.com/advice/saving-money/your-credit-score-the-magic-money-number-explained/) by Reader's Digest explaining how the credit score is usualy worked out and followed its leads through the dataset. I found many variables in the dataset that talked about payment history, total debt, duration, new credits, and types of credit, trying to adapt the article's hints to my problem at hand. I continued exploring the relationship between some of these variables with the credit rating, making in my mind an idea of which were the main contributors. I identified some variables that influence the credit rating, and some others that don't influence it too much.
+
+After completing exploring my first hunch: that the interest rate is infuenced by one's credit rating, I started exploring which variables most influence one's credit rating. I deem they are:
+
+- your payment history:   do you pay in time, every time?
+- usage ratio:            do you have more credit than you use?
+- duration:               is your credit history long enough?
+- new credit:             are you always applying for new credit?
+- type of credit:         is your credit from a bank or from something lesser?
+
+The linear model shows a good fit, but I think the main limitation is not knowing how much importance do credit agencies in general, or Prosper in this case, how much importance they put on each feature. I have assigned the same weight to each feature in the model, but my intuition tells me that in practice more weight is given to some features, in the interest of the lender.
+
+Other limitation I explored only briefly is the fluctuation of interest rates with time. In the period of 2009 to 2015, the interest rates in general in the market have been stable and low. I explored a little bit in the dataset the change of interest rates through the quarters of each year but I could not discern any definitive pattern. A more thorough analysis should take into consideration the variability of interest rates with time, and perhaps include a variable with the base interest rate, or a weighted mean of the market's rates, especially if the market start to fluctuate volatily.
+
