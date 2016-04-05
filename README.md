@@ -1,13 +1,15 @@
-# Exploratory Data Analysis with R
+# eda-loans
+# Explore and Summarize Data: Prosper Loans
 
-##*Explore and Summarize Data: Prosper Loans*
+In this project I perform an exploratory data analysis of a public data set containing 114K observations about [Prosper](prosper.com) Loans between Nov 2005 and Mar 2014.
 
-### A Project made while taking Udacity's Data Analyst Nanodegree
+## Summary
 
-**The Dataset:** Public data about Prosper Loans.
+Using the [R](r-project.org) programming language with the [RStudio](rstudio.com) IDE and some R packages (dplyr, memisc, ggplot2 and gridExtra), I applied Exploratory Data Analysis Techniques in order to obtain insights from the data.
 
-**The Quest:** Explore and Analyze the Data. A very open question !
+## Files
 
-**Comments:** Experiencing the path from when your data is a lot of rows and columns, then adding some domain knowledge, and suddenly seeing your data startint to reveal some insight that can be proved or challenged: That's what I call Exploratory Data Analysis.
+* **EDAproject.Rmd**: The R markdown document with the analysis and R code.
+* **EDAproject.html**: The html file knit by RStudio.
+* **prosperLoanData.csv**: A random sample of the data used in the analysis. The actual file is 86MB and is not included in this repo.
 
-**Technologies Used:** R, R packages, Rstudio, exploratory data analysis techniques

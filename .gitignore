@@ -1,4 +1,7 @@
-prosperLoanData.csv
+prosperLoanData-full.csv
 /cache
 /figure
 .Rhistory
+*.py
+*.pyc
+
